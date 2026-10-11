@@ -193,6 +193,12 @@ struct CollectionGrid: NSViewRepresentable {
             return h
         }
 
+        /// 格子滚出屏幕：立刻释放它的图片并取消排队中的读取，内存里只保留屏幕上的那些
+        func collectionView(_ cv: NSCollectionView, didEndDisplaying item: NSCollectionViewItem,
+                            forRepresentedObjectAt ip: IndexPath) {
+            (item as? GridCell)?.releaseImage()
+        }
+
         // MARK: 布局
 
         func collectionView(_ cv: NSCollectionView, layout: NSCollectionViewLayout,
@@ -456,6 +462,10 @@ final class GridCell: NSCollectionViewItem {
 
     override func prepareForReuse() {
         super.prepareForReuse()
+        releaseImage()
+    }
+
+    func releaseImage() {
         cancelLoad()
         shownKey = nil
         card.image.layer?.contents = nil

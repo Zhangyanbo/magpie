@@ -82,10 +82,10 @@ final class ImageLoader {
 
     /// 内存缓存按解码后的字节数限制，不按张数
     private let thumbs: NSCache<NSString, NSImage> = {
-        let c = NSCache<NSString, NSImage>(); c.totalCostLimit = 256 << 20; return c
+        let c = NSCache<NSString, NSImage>(); c.totalCostLimit = 128 << 20; return c
     }()
     private let larges: NSCache<NSString, NSImage> = {
-        let c = NSCache<NSString, NSImage>(); c.totalCostLimit = 400 << 20; return c
+        let c = NSCache<NSString, NSImage>(); c.totalCostLimit = 160 << 20; return c
     }()
     private var inflight: [String: Task<NSImage?, Never>] = [:]
     private var thumbDir: URL?
@@ -148,7 +148,7 @@ final class ImageLoader {
             await IOGate.shared.release()
             guard let cg else { return nil }
             if let local { Self.write(cg, to: local) }
-            return NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
+            return Self.image(cg)
         }
         inflight[key] = task
         let img = await task.value
@@ -200,12 +200,32 @@ final class ImageLoader {
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceCreateThumbnailWithTransform: true,
             kCGImageSourceThumbnailMaxPixelSize: maxPixel,
+            kCGImageSourceShouldCacheImmediately: true,   // 在后台线程就解码好，不留到界面绘制时
         ]
         return CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary)
     }
 
     nonisolated static func downsample(_ url: URL, _ maxPixel: Int) -> NSImage? {
-        downsampleCG(url, maxPixel).map { NSImage(cgImage: $0, size: NSSize(width: $0.width, height: $0.height)) }
+        downsampleCG(url, maxPixel).map(image)
+    }
+
+    /// 解码成界面能直接使用的 8 位 sRGB BGRA 位图再放进缓存。
+    /// 否则遇到灰度、16 位、CMYK 等格式时，界面层会再复制一份转换后的位图（内存翻倍，且不受缓存上限控制）。
+    nonisolated static func image(_ cg: CGImage) -> NSImage {
+        let n = normalized(cg)
+        return NSImage(cgImage: n, size: NSSize(width: n.width, height: n.height))
+    }
+
+    nonisolated static func normalized(_ cg: CGImage) -> CGImage {
+        let info = CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
+        if cg.bitsPerComponent == 8, cg.bitsPerPixel == 32, cg.bitmapInfo.rawValue == info,
+           cg.colorSpace?.name == CGColorSpace.sRGB { return cg }
+        guard let cs = CGColorSpace(name: CGColorSpace.sRGB),
+              let ctx = CGContext(data: nil, width: cg.width, height: cg.height, bitsPerComponent: 8,
+                                  bytesPerRow: 0, space: cs, bitmapInfo: info) else { return cg }
+        ctx.interpolationQuality = .high
+        ctx.draw(cg, in: CGRect(x: 0, y: 0, width: cg.width, height: cg.height))
+        return ctx.makeImage() ?? cg
     }
 
     /// 写本机缩略图缓存：有透明通道用 PNG，否则 JPEG
