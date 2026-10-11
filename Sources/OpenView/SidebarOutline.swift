@@ -97,8 +97,17 @@ struct SidebarOutline: NSViewRepresentable {
             return n
         }
 
+        private var stateVersion = -1
+
         func apply(filter: String) {
             guard let ov = outline else { return }
+            // 打开了库（恢复完界面状态后）：取回这个库上次展开的节点
+            if store.viewStateVersion != stateVersion {
+                stateVersion = store.viewStateVersion
+                expanded = store.expandedFolders
+                signature = ""
+                knownFolders = []
+            }
             let q = filter.trimmingCharacters(in: .whitespaces)
             // 树结构、数量或筛选变化时才重建（选择变化只同步选中行）
             let sig = "\(q)|\(store.folders.hashValue)|\(store.counts.hashValue)|\(store.folderCounts.hashValue)"
@@ -147,6 +156,7 @@ struct SidebarOutline: NSViewRepresentable {
                 pendingRename = id
                 var p = cache["f:\(id)"]?.parent
                 while let x = p, !x.isHeader { expanded.insert(x.key); p = x.parent }
+                store.setExpanded(expanded)
             }
             knownFolders = all
         }
@@ -199,10 +209,10 @@ struct SidebarOutline: NSViewRepresentable {
         }
 
         func outlineViewItemDidExpand(_ n: Notification) {
-            if !syncing, let node = n.userInfo?["NSObject"] as? Node { expanded.insert(node.key) }
+            if !syncing, let node = n.userInfo?["NSObject"] as? Node { expanded.insert(node.key); store.setExpanded(expanded) }
         }
         func outlineViewItemDidCollapse(_ n: Notification) {
-            if !syncing, let node = n.userInfo?["NSObject"] as? Node { expanded.remove(node.key) }
+            if !syncing, let node = n.userInfo?["NSObject"] as? Node { expanded.remove(node.key); store.setExpanded(expanded) }
         }
 
         func outlineViewSelectionDidChange(_ n: Notification) {

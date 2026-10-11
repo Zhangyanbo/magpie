@@ -36,7 +36,7 @@ final class LibraryStore: ObservableObject {
     /// 视图切换代数：切换时丢弃排队中的读取，格子的加载任务据此重新发起
     @Published private(set) var viewGen = 0
     @Published var selection: SidebarSel? = .all {
-        didSet { if oldValue != selection { preview = false; setSelection([], focus: nil); viewChanged() } }
+        didSet { if oldValue != selection { preview = false; setSelection([], focus: nil); saveSelection(); viewChanged() } }
     }
     @Published var search = "" { didSet { if oldValue != search { viewChanged() } } }
     @Published var selectedItemID: String?
@@ -130,6 +130,7 @@ final class LibraryStore: ObservableObject {
         flushIndex(force: true)
         let token = UUID()
         loadToken = token
+        viewStateRestored = false
         root = url
         folders = []; folderPaths = []; folderByID = [:]
         items = []; visible = []; raws = [:]; index = [:]; mtime = [:]; allIDs = []
@@ -166,6 +167,49 @@ final class LibraryStore: ObservableObject {
         UserDefaults.standard.set(recents, forKey: "recentLibraries")
     }
 
+    // MARK: - 记住每个库上次的界面状态（打开的文件夹、左侧展开了哪些）
+    // 这是个人界面偏好，存在本机 UserDefaults（按库路径区分），不写进库：多台电脑共用一个库时各自独立。
+
+    /// 左侧树里展开的节点（SidebarOutline 读写）
+    private(set) var expandedFolders: Set<String> = []
+    /// 打开库时会先重置成「全部」，在恢复上次状态之前不能保存，否则会覆盖掉记录
+    private var viewStateRestored = false
+    /// 每次恢复完界面状态加一，左侧树据此重新读取展开记录
+    private(set) var viewStateVersion = 0
+
+    private func uiKey(_ name: String) -> String? { root.map { "ui.\(name).\($0.standardizedFileURL.path)" } }
+
+    private func restoreViewState() {
+        defer { viewStateRestored = true; viewStateVersion += 1 }
+        expandedFolders = Set(uiKey("expanded").flatMap { UserDefaults.standard.stringArray(forKey: $0) } ?? [])
+        guard let key = uiKey("selection"), let v = UserDefaults.standard.string(forKey: key) else { return }
+        switch v {
+        case "all": selection = .all
+        case "uncategorized": selection = .uncategorized
+        case "trash": selection = .trash
+        default:
+            if v.hasPrefix("folder:"), folderByID[String(v.dropFirst(7))] != nil { selection = .folder(String(v.dropFirst(7))) }
+        }
+    }
+
+    private func saveSelection() {
+        guard viewStateRestored, let key = uiKey("selection"), let sel = selection else { return }
+        let v: String
+        switch sel {
+        case .all: v = "all"
+        case .uncategorized: v = "uncategorized"
+        case .trash: v = "trash"
+        case .folder(let id): v = "folder:\(id)"
+        }
+        UserDefaults.standard.set(v, forKey: key)
+    }
+
+    func setExpanded(_ keys: Set<String>) {
+        guard viewStateRestored, keys != expandedFolders else { return }
+        expandedFolders = keys
+        if let key = uiKey("expanded") { UserDefaults.standard.set(Array(keys).sorted(), forKey: key) }
+    }
+
     // MARK: - 打开时只做最少的事
 
     /// 读文件夹树、库内索引（.openview/index/ 的几个分段文件）和 mtime.json。
@@ -184,6 +228,7 @@ final class LibraryStore: ObservableObject {
         addRecent(url.path)
         folders = LibraryIO.parseFolders(meta["folders"] as? [[String: Any]] ?? [])
         rebuildFolderIndex()
+        restoreViewState()
 
         progress = LoadProgress(phase: "正在读取索引…")
         let parsed = await Task.detached(priority: .userInitiated) { () -> (items: [(Item, [String: Any])], segments: [String]) in
