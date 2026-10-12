@@ -13,34 +13,40 @@ enum RemoteIndex {
 
     static func dir(_ root: URL) -> URL { root.appending(noStat: ".magpie/index") }
 
-    /// 本软件旧名 OpenView，索引放在 .openview/；还没有 .magpie/ 时把它整体改名过来，已建好的索引继续可用
-    static func migrateLegacy(_ root: URL) {
-        let fm = FileManager.default
-        let old = root.appending(noStat: ".openview"), new = root.appending(noStat: ".magpie")
-        guard !fm.fileExists(atPath: new.path), fm.fileExists(atPath: old.path) else { return }
-        try? fm.moveItem(at: old, to: new)
+    /// 本软件旧名 OpenView，旧索引在 .openview/index/。不改名搬家（在 SMB 上改名目录可能失败），
+    /// 而是两个目录一起读；下次合并快照时写进新目录，旧分段删掉
+    static func legacyDir(_ root: URL) -> URL { root.appending(noStat: ".openview/index") }
+
+    /// 两个目录里的全部分段，按文件名（时间戳）排序
+    static func segments(_ root: URL) -> [URL] {
+        [legacyDir(root), dir(root)].flatMap { d in
+            ((try? FileManager.default.contentsOfDirectory(atPath: d.path)) ?? [])
+                .filter { $0.hasSuffix(".json") && !$0.hasPrefix(".") }
+                .map { d.appending(noStat: $0) }
+        }
+        .sorted { $0.lastPathComponent < $1.lastPathComponent }
     }
 
-    static func segmentNames(_ root: URL) -> [String] {
-        ((try? FileManager.default.contentsOfDirectory(atPath: dir(root).path)) ?? [])
-            .filter { $0.hasSuffix(".json") && !$0.hasPrefix(".") }
-            .sorted()
+    static func segmentNames(_ root: URL) -> [String] { segments(root).map(\.lastPathComponent) }
+
+    static func hasLegacy(_ root: URL) -> Bool {
+        FileManager.default.fileExists(atPath: legacyDir(root).path)
     }
 
     /// 读全部分段并按顺序合并，返回 (条目, 分段文件名)
     static func load(_ root: URL) -> (items: [[String: Any]], segments: [String]) {
-        let names = segmentNames(root)
-        var parts = [[[String: Any]]](repeating: [], count: names.count)
+        let urls = segments(root)
+        var parts = [[[String: Any]]](repeating: [], count: urls.count)
         let lock = NSLock()
-        DispatchQueue.concurrentPerform(iterations: names.count) { i in
-            guard let d = LibraryIO.readJSON(dir(root).appending(noStat: names[i])) as? [String: Any],
+        DispatchQueue.concurrentPerform(iterations: urls.count) { i in
+            guard let d = LibraryIO.readJSON(urls[i]) as? [String: Any],
                   d["version"] as? Int == version else { return }
             let items = d["items"] as? [[String: Any]] ?? []
             lock.lock(); parts[i] = items; lock.unlock()
         }
         var merged: [String: [String: Any]] = [:]
         for part in parts { for r in part { if let id = r["id"] as? String { merged[id] = r } } }
-        return (Array(merged.values), names)
+        return (Array(merged.values), urls.map(\.lastPathComponent))
     }
 
     private static func newName() -> String {
@@ -68,8 +74,13 @@ enum RemoteIndex {
     @discardableResult
     static func compact(_ items: [[String: Any]], takenAt cutoff: String, in root: URL) -> String? {
         guard let name = append(items, to: root) else { return nil }
-        for n in segmentNames(root) where n != name && n < cutoff {
-            try? FileManager.default.removeItem(at: dir(root).appending(noStat: n))
+        let fm = FileManager.default
+        for u in segments(root) where u.lastPathComponent != name && u.lastPathComponent < cutoff {
+            try? fm.removeItem(at: u)
+        }
+        // 旧目录的分段都已并入快照：整个 .openview/ 删掉（只在里面没有别的分段时）
+        if (try? fm.contentsOfDirectory(atPath: legacyDir(root).path))?.contains(where: { $0.hasSuffix(".json") }) != true {
+            try? fm.removeItem(at: legacyDir(root).deletingLastPathComponent())
         }
         return name
     }

@@ -63,7 +63,7 @@ Magpie：兼容 Eagle `.library` 格式的开源素材管理软件，macOS 原�
 - 格式暂时只支持主流图片（jpg/png/bmp/gif/webp/heic/tiff），其他类型先不显示。
 
 ## 改名
-- 软件原名 OpenView，现名 **Magpie**（用户选定），MIT 许可证。旧数据要能继续用：库里的 `.openview/` 打开时改名为 `.magpie/`；旧的设置（`io.github.openview` 域）和本机缓存第一次启动时搬过来。
+- 软件原名 OpenView，现名 **Magpie**（用户选定），MIT 许可证。旧数据要能继续用：库里的旧 `.openview/index/` 和 `.magpie/index/` 一起读，合并快照后删旧目录（不要改名目录：在 SMB 上改名曾失败，导致索引重建）；旧的设置（`io.github.openview` 域）和本机缓存第一次启动时搬过来。
 - 对外只说「兼容 Eagle 素材库格式」，不用 Eagle 的 logo，不起带 Eagle 的名字，不暗示是官方产品。
 
 ## 协作规则

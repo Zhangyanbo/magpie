@@ -135,7 +135,7 @@ final class LibraryStore: ObservableObject {
         folders = []; folderPaths = []; folderByID = [:]
         items = []; visible = []; raws = [:]; index = [:]; mtime = [:]; allIDs = []
         counts = [:]; folderCounts = [:]; allTags = []; indexState = .none
-        metaInflight = []; pendingMerge = []; unsaved = []; segments = []; idsLoaded = false; pendingBuild = false
+        metaInflight = []; pendingMerge = []; unsaved = []; segments = []; legacyIndex = false; idsLoaded = false; pendingBuild = false
         selection = .all; selectedIDs = []; selectedItemID = nil; search = ""; preview = false
         progress = LoadProgress(phase: "正在打开素材库…")
         ImageLoader.shared.configure(cacheDir: LocalCache.dir(for: url))   // 本机只缓存缩略图
@@ -231,16 +231,17 @@ final class LibraryStore: ObservableObject {
         restoreViewState()
 
         progress = LoadProgress(phase: "正在读取索引…")
-        let parsed = await Task.detached(priority: .userInitiated) { () -> (items: [(Item, [String: Any])], segments: [String]) in
-            RemoteIndex.migrateLegacy(url)
+        let parsed = await Task.detached(priority: .userInitiated) { () -> (items: [(Item, [String: Any])], segments: [String], legacy: Bool) in
+            let legacy = RemoteIndex.hasLegacy(url)
             let (raw, segs) = RemoteIndex.load(url)
             let items = raw.compactMap { r in
                 (r["id"] as? String).flatMap { LibraryIO.parseItem(r, dir: LibraryIO.itemDir(root: url, id: $0)) }.map { ($0, r) }
             }
-            return (items, segs)
+            return (items, segs, legacy)
         }.value
         guard loadToken == token else { return }
         segments = parsed.segments
+        legacyIndex = parsed.legacy
         if !parsed.items.isEmpty {
             items = parsed.items.map(\.0)
             index = Dictionary(parsed.items.enumerated().map { ($1.0.id, $0) }, uniquingKeysWith: { a, _ in a })
@@ -342,6 +343,7 @@ final class LibraryStore: ObservableObject {
 
     private var unsaved: [[String: Any]] = []
     private var segments: [String] = []
+    private var legacyIndex = false   // 库里还有旧名 OpenView 的 .openview/index/
     private var idsLoaded = false
     private var pendingBuild = false
 
@@ -358,7 +360,8 @@ final class LibraryStore: ObservableObject {
 
     /// 分段太多时合并成一个快照（只在索引完整时做）
     private func compactIfNeeded(force: Bool = false) {
-        guard let root, indexState == .ready, segments.count > (force ? 1 : RemoteIndex.compactThreshold) else { return }
+        guard let root, indexState == .ready, segments.count > (force ? 1 : RemoteIndex.compactThreshold)
+                || legacyIndex else { return }   // 旧名留下的 .openview/ 尽快并进新目录
         let snapshot = Array(raws.values), cutoff = RemoteIndex.cutoffNow()
         let token = loadToken
         writeQueue.async {   // 串行队列：之前排队的分段写入都已完成
@@ -367,6 +370,7 @@ final class LibraryStore: ObservableObject {
             DispatchQueue.main.async {
                 guard self.loadToken == token else { return }
                 self.segments = remaining.isEmpty ? [name] : remaining
+                self.legacyIndex = false
             }
         }
     }

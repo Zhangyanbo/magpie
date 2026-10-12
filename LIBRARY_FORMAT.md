@@ -173,4 +173,4 @@ Magpie 向下兼容 Eagle，同时在库目录里维护自己的索引来提速�
 - **合并**：分段超过 20 个（或刚建完索引）时，把全部条目写成一个新分段，再删掉文件名时间戳早于合并时刻的旧分段。
 - **完整性**：不记录标记；`mtime.json` 中每个 id 都在索引里即为完整。`lastModified` 与 `mtime.json` 不一致的条目重新读取。
 - 索引不是权威数据：Eagle 的 `images/*.info/metadata.json` 才是。索引可以随时删除重建。
-- `version` 不匹配的分段会被忽略。更早版本留下的 `.openview/index.json` 已不再使用，可以删除。本软件旧名 OpenView，索引目录原为 `.openview/`，打开库时若还没有 `.magpie/` 会把它整体改名过来。
+- `version` 不匹配的分段会被忽略。更早版本留下的 `.openview/index.json` 已不再使用，可以删除。本软件旧名 OpenView，索引目录原为 `.openview/`，打开库时两个目录的分段一起读（按文件名时间戳合并），下次合并快照时写进 `.magpie/` 并删掉 `.openview/`。
