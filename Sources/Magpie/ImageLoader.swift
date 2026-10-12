@@ -4,7 +4,7 @@ import ImageIO
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// 本机缓存目录：~/Library/Caches/OpenView/<库路径哈希>/
+/// 本机缓存目录：~/Library/Caches/Magpie/<库路径哈希>/
 /// - thumbs/：缩略图（480px，单张几十 KB），总量超过上限时按最久未用删除
 enum LocalCache {
     static let thumbLimitBytes: Int64 = 2 << 30          // 2 GB
@@ -14,7 +14,7 @@ enum LocalCache {
         let hash = Insecure.MD5.hash(data: Data(root.standardizedFileURL.path.utf8))
             .map { String(format: "%02x", $0) }.joined()
         let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-            .appending(noStat: "OpenView/\(hash)")
+            .appending(noStat: "Magpie/\(hash)")
         try? FileManager.default.createDirectory(at: base.appending(noStat: "thumbs"),
                                                  withIntermediateDirectories: true)
         return base

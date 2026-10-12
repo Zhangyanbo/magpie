@@ -44,7 +44,7 @@ struct SidebarOutline: NSViewRepresentable {
         ov.outlineTableColumn = col
         ov.dataSource = c
         ov.delegate = c
-        ov.registerForDraggedTypes([.openviewItem, .openviewFolder])
+        ov.registerForDraggedTypes([.magpieItem, .magpieFolder])
         ov.setDraggingSourceOperationMask(.move, forLocal: true)
         ov.draggingDestinationFeedbackStyle = .sourceList
         c.outline = ov

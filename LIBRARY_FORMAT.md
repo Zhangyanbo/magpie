@@ -66,7 +66,7 @@ XXX.library/
   "coverId": "<ITEM_ID>",        // 可选：封面条目 id（观察到 27/130）
   "orderBy": "BTIME",            // 可选：排序字段，观察到 BTIME / NAME / MTIME
   "sortIncrease": true,          // 可选：与 orderBy 同时出现，true=升序
-  "iconColor": "red"             // 可选：文件夹颜色 red/orange/yellow/green/aqua/blue/purple/pink（本库未出现，按 Eagle 约定；OpenView 读写此字段）
+  "iconColor": "red"             // 可选：文件夹颜色 red/orange/yellow/green/aqua/blue/purple/pink（本库未出现，按 Eagle 约定；Magpie 读写此字段）
 }
 ```
 
@@ -152,12 +152,12 @@ XXX.library/
 5. **并发**：Eagle 运行时不要同时写同一个库（Eagle 有内存缓存，会覆盖外部修改）。
 6. **待确认**：`smartFolders`、`quickAccess`、`tagsGroups`、`actions.json`、`saved-filters.json` 在本库中都为空，结构需要在 Eagle 中创建样例后再补充。
 
-## 10. OpenView 扩展：`.openview/index/`
+## 10. Magpie 扩展：`.magpie/index/`
 
-OpenView 向下兼容 Eagle，同时在库目录里维护自己的索引来提速（Eagle 会忽略这个目录）。**索引只放在库里，和库在一起**；本机只缓存缩略图。
+Magpie 向下兼容 Eagle，同时在库目录里维护自己的索引来提速（Eagle 会忽略这个目录）。**索引只放在库里，和库在一起**；本机只缓存缩略图。
 
 ```
-.openview/index/
+.magpie/index/
 ├── 1791681680524-92cb9bb6.json    # 分段：<13 位毫秒时间戳>-<随机串>.json
 └── ...
 ```
@@ -173,4 +173,4 @@ OpenView 向下兼容 Eagle，同时在库目录里维护自己的索引来提�
 - **合并**：分段超过 20 个（或刚建完索引）时，把全部条目写成一个新分段，再删掉文件名时间戳早于合并时刻的旧分段。
 - **完整性**：不记录标记；`mtime.json` 中每个 id 都在索引里即为完整。`lastModified` 与 `mtime.json` 不一致的条目重新读取。
 - 索引不是权威数据：Eagle 的 `images/*.info/metadata.json` 才是。索引可以随时删除重建。
-- `version` 不匹配的分段会被忽略。旧版本留下的 `.openview/index.json` 已不再使用，可以删除。
+- `version` 不匹配的分段会被忽略。更早版本留下的 `.openview/index.json` 已不再使用，可以删除。本软件旧名 OpenView，索引目录原为 `.openview/`，打开库时若还没有 `.magpie/` 会把它整体改名过来。

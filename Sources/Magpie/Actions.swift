@@ -2,8 +2,8 @@ import AppKit
 
 extension NSPasteboard.PasteboardType {
     /// 程序内拖动：图片条目 id、文件夹 id
-    static let openviewItem = NSPasteboard.PasteboardType("io.github.openview.item")
-    static let openviewFolder = NSPasteboard.PasteboardType("io.github.openview.folder")
+    static let magpieItem = NSPasteboard.PasteboardType("io.github.magpie.item")
+    static let magpieFolder = NSPasteboard.PasteboardType("io.github.magpie.folder")
 }
 
 /// 带闭包的菜单项
@@ -143,22 +143,22 @@ enum ItemActions {
     static func dragItem(_ item: Item) -> NSPasteboardItem {
         let p = NSPasteboardItem()
         p.setString(item.fileURL.absoluteString, forType: .fileURL)
-        p.setString(item.id, forType: .openviewItem)
+        p.setString(item.id, forType: .magpieItem)
         return p
     }
 
     static func dragFolder(_ id: String) -> NSPasteboardItem {
         let p = NSPasteboardItem()
-        p.setString(id, forType: .openviewFolder)
+        p.setString(id, forType: .magpieFolder)
         return p
     }
 
     static func draggedItemIDs(_ info: NSDraggingInfo) -> [String] {
-        (info.draggingPasteboard.pasteboardItems ?? []).compactMap { $0.string(forType: .openviewItem) }
+        (info.draggingPasteboard.pasteboardItems ?? []).compactMap { $0.string(forType: .magpieItem) }
     }
 
     static func draggedFolderID(_ info: NSDraggingInfo) -> String? {
-        info.draggingPasteboard.pasteboardItems?.first?.string(forType: .openviewFolder)
+        info.draggingPasteboard.pasteboardItems?.first?.string(forType: .magpieFolder)
     }
 
     /// 图片拖到某个文件夹时：按住 ⌥ 是「添加」；否则从某个文件夹视图拖出来是「移动」，从其他视图拖出来是「添加」

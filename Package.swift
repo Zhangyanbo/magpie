@@ -2,9 +2,9 @@
 import PackageDescription
 
 let package = Package(
-    name: "OpenView",
+    name: "Magpie",
     platforms: [.macOS(.v14)],
     targets: [
-        .executableTarget(name: "OpenView", path: "Sources/OpenView")
+        .executableTarget(name: "Magpie", path: "Sources/Magpie")
     ]
 )

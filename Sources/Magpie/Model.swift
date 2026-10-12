@@ -150,7 +150,7 @@ enum LibraryIO {
         let lock = NSLock()
         let group = DispatchGroup()
         let sem = DispatchSemaphore(value: 24)
-        let queue = DispatchQueue(label: "openview.read", qos: .userInitiated, attributes: .concurrent)
+        let queue = DispatchQueue(label: "magpie.read", qos: .userInitiated, attributes: .concurrent)
         for (i, id) in ids.enumerated() {
             sem.wait()
             group.enter()

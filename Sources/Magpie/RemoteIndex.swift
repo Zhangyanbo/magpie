@@ -1,6 +1,6 @@
 import Foundation
 
-/// OpenView 自己的索引，放在库里（可以在 NAS 上）：<库>/.openview/index/*.json
+/// Magpie 自己的索引，放在库里（可以在 NAS 上）：<库>/.magpie/index/*.json
 ///
 /// - 分段追加：每读完一批条目就写一个新分段，从不原地修改大文件，中途退出不丢进度。
 /// - 文件名以毫秒时间戳开头，按文件名排序合并，后写的覆盖先写的；多台电脑各写各的分段，不需要锁。
@@ -11,7 +11,15 @@ enum RemoteIndex {
     static let version = 1
     static let compactThreshold = 20
 
-    static func dir(_ root: URL) -> URL { root.appending(noStat: ".openview/index") }
+    static func dir(_ root: URL) -> URL { root.appending(noStat: ".magpie/index") }
+
+    /// 本软件旧名 OpenView，索引放在 .openview/；还没有 .magpie/ 时把它整体改名过来，已建好的索引继续可用
+    static func migrateLegacy(_ root: URL) {
+        let fm = FileManager.default
+        let old = root.appending(noStat: ".openview"), new = root.appending(noStat: ".magpie")
+        guard !fm.fileExists(atPath: new.path), fm.fileExists(atPath: old.path) else { return }
+        try? fm.moveItem(at: old, to: new)
+    }
 
     static func segmentNames(_ root: URL) -> [String] {
         ((try? FileManager.default.contentsOfDirectory(atPath: dir(root).path)) ?? [])

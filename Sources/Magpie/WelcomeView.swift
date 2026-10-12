@@ -9,7 +9,7 @@ struct WelcomeView: View {
                 Image(systemName: "photo.stack")
                     .font(.system(size: 64, weight: .light))
                     .foregroundStyle(.tint)
-                Text("OpenView").font(.largeTitle.weight(.semibold))
+                Text("Magpie").font(.largeTitle.weight(.semibold))
                 Text("兼容 Eagle 格式的素材库浏览器").foregroundStyle(.secondary)
                 Button { store.openPanel() } label: {
                     Label("打开素材库…", systemImage: "folder").padding(.horizontal, 8)

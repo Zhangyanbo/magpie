@@ -29,7 +29,7 @@ struct CollectionGrid: NSViewRepresentable {
                     withIdentifier: GridHeader.id)
         cv.setDraggingSourceOperationMask(.copy, forLocal: false)
         cv.setDraggingSourceOperationMask([.move, .copy], forLocal: true)
-        cv.registerForDraggedTypes([.openviewItem, .openviewFolder])
+        cv.registerForDraggedTypes([.magpieItem, .magpieFolder])
         c.collectionView = cv
 
         let scroll = NSScrollView()
@@ -352,7 +352,7 @@ final class GridCollectionView: NSCollectionView {
 
     override func keyDown(with event: NSEvent) {
         guard let c = coordinator else { return super.keyDown(with: event) }
-        // 带 ⌘ 的快捷键都在菜单栏里（OpenViewApp），通过响应链调到下面的 @objc 方法
+        // 带 ⌘ 的快捷键都在菜单栏里（MagpieApp），通过响应链调到下面的 @objc 方法
         // 预览打开时：左右（以及上下）= 按顺序上一张/下一张，不按网格行列移动
         if c.store.preview {
             switch event.keyCode {

@@ -11,12 +11,30 @@ struct ViewerTarget: Codable, Hashable {
 }
 
 @main
-struct OpenViewApp: App {
+struct MagpieApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
-    @StateObject private var store = LibraryStore()
+    @StateObject private var store: LibraryStore
+
+    init() {
+        Self.migrateFromOpenView()
+        _store = StateObject(wrappedValue: LibraryStore())
+    }
+
+    /// 本软件旧名 OpenView：第一次启动时搬过来旧的设置（最近打开、界面状态）和本机缩略图缓存
+    private static func migrateFromOpenView() {
+        let d = UserDefaults.standard
+        guard !d.bool(forKey: "migratedFromOpenView") else { return }
+        d.set(true, forKey: "migratedFromOpenView")
+        for (k, v) in d.persistentDomain(forName: "io.github.openview") ?? [:] where d.object(forKey: k) == nil {
+            d.set(v, forKey: k)
+        }
+        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        let old = caches.appending(noStat: "OpenView"), new = caches.appending(noStat: "Magpie")
+        if !FileManager.default.fileExists(atPath: new.path) { try? FileManager.default.moveItem(at: old, to: new) }
+    }
 
     var body: some Scene {
-        Window("OpenView", id: "main") {
+        Window("Magpie", id: "main") {
             Group {
                 if store.root == nil { WelcomeView() } else { LibraryView() }
             }

@@ -60,13 +60,13 @@ final class LibraryStore: ObservableObject {
     private var loadToken = UUID()
 
     /// 所有对库文件的写操作串行放在后台，绝不在主线程碰 NAS
-    private let writeQueue = DispatchQueue(label: "openview.write", qos: .userInitiated)
+    private let writeQueue = DispatchQueue(label: "magpie.write", qos: .userInitiated)
 
     init() {
         if let last = recents.first { open(URL(fileURLWithPath: last), silent: true) }
     }
 
-    var libraryName: String { root?.deletingPathExtension().lastPathComponent ?? "OpenView" }
+    var libraryName: String { root?.deletingPathExtension().lastPathComponent ?? "Magpie" }
     var selectedItem: Item? { selectedItemID.flatMap(item) }
     func item(_ id: String) -> Item? { index[id].map { items[$0] } }
 
@@ -212,7 +212,7 @@ final class LibraryStore: ObservableObject {
 
     // MARK: - 打开时只做最少的事
 
-    /// 读文件夹树、库内索引（.openview/index/ 的几个分段文件）和 mtime.json。
+    /// 读文件夹树、库内索引（.magpie/index/ 的几个分段文件）和 mtime.json。
     /// 索引完整就只增量读有变化的条目；不完整就什么都不扫，
     /// 「全部」视图按需读取可见格子的 metadata，其他视图用到时再接着建索引。
     private func load(_ url: URL, token: UUID, silent: Bool) async {
@@ -232,6 +232,7 @@ final class LibraryStore: ObservableObject {
 
         progress = LoadProgress(phase: "正在读取索引…")
         let parsed = await Task.detached(priority: .userInitiated) { () -> (items: [(Item, [String: Any])], segments: [String]) in
+            RemoteIndex.migrateLegacy(url)
             let (raw, segs) = RemoteIndex.load(url)
             let items = raw.compactMap { r in
                 (r["id"] as? String).flatMap { LibraryIO.parseItem(r, dir: LibraryIO.itemDir(root: url, id: $0)) }.map { ($0, r) }
@@ -337,7 +338,7 @@ final class LibraryStore: ObservableObject {
         return true
     }
 
-    // MARK: - 写索引（库内 .openview/index/，后台串行）
+    // MARK: - 写索引（库内 .magpie/index/，后台串行）
 
     private var unsaved: [[String: Any]] = []
     private var segments: [String] = []
